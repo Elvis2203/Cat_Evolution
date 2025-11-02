@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Evolution</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="ui">
+    <h2>Cat Evolution 🐱</h2>
+    <p>
+      Coins: <span id="coins">0</span> (<span id="coinsPerSec">0</span>/sec)
+      <span id="bed-tracker">🛏️ <span id="bed-timer">--</span></span>
+    </p>
+  </div>
+
+  <!-- Main game wrapper for board + stage nav -->
+  <div class="game-container">
+    <div id="board-wrapper">
+      <!-- The game board has a max width for desktop and becomes fluid on mobile -->
+      <div id="board"></div>
+    </div>
+    <!-- Stage navigation -->
+    <div id="stage-nav">
+      <button id="stage-btn-0" class="stage-btn active">Stage 1</button>
+      <button id="stage-btn-1" class="stage-btn">Stage 2</button>
+      <button id="stage-btn-2" class="stage-btn">Stage 3</button>
+    </div>
+  </div>
+
+  <!-- Buttons to open the new modals -->
+  <!-- This container is centered -->
+  <div class="ui-container">
+    <button id="open-shop-btn" class="ui-open-btn">🛒 Cat Shop</button>
+    <button id="open-upgrades-btn" class="ui-open-btn">🚀 Upgrades</button>
+  </div>
+
+  <!-- --- Modals (Hidden by default) --- -->
+
+  <!-- Shop Modal -->
+  <div id="shop-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn">&times;</button>
+      <h2>🛒 Cat Shop</h2>
+      <!-- MODIFIED: Updated text to reflect new spawn logic -->
+      <p>Purchased cats will appear on their designated stage.</p>
+      <div id="shopItems"></div>
+    </div>
+  </div>
+
+  <!-- Upgrades Modal -->
+  <div id="upgrades-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn">&times;</button>
+      <h2>🚀 Upgrades</h2>
+      <div id="upgradeItems"></div>
+    </div>
+  </div>
+
+  <!-- Simple Alert Modal -->
+  <div id="alert-modal" class="modal">
+    <div class="modal-content" style="width: 300px; height: auto; min-height: 150px; justify-content: center;">
+      <p id="alert-message" style="text-align: center; margin-bottom: 20px;"></p>
+      <button id="alert-close-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; width: 80px; margin: 0 auto;">OK</button>
+    </div>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>
