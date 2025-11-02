@@ -46,6 +46,13 @@ let maxStageUnlocked = 0;
 let catsByStage = [[], [], []]; // Array of arrays for cats
 let bedsByStage = [[], [], []]; // Array of arrays for beds
 
+// --- NEW: Global Drag State (for touch and mouse) ---
+let draggedItem = null; // Will be { type: 'cat' | 'snack', item: cat | snack }
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+
 // --- Game Data ---
 
 // Helper function to generate cat data
@@ -364,46 +371,42 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
 
 // --- Entity Interaction ---
 
+// --- MODIFIED: makeDraggable (Refactored for Touch and Mouse) ---
 function makeDraggable(cat) {
-  let offsetX, offsetY;
-  let isDragging = false;
-
-  cat.el.addEventListener("mousedown", (e) => {
+  
+  function handleCatDragStart(clientX, clientY) {
+    if (isDragging) return; // Don't start a new drag
     isDragging = true;
+    draggedItem = { type: 'cat', item: cat };
+    
     cat.el.style.cursor = 'grabbing';
     cat.el.style.zIndex = 10;
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
-    // --- NEW: Remove transition class while dragging for instant response ---
-    cat.el.classList.add("cat-dragging");
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-    const rect = board.getBoundingClientRect();
     
-    let newX = e.clientX - rect.left - offsetX;
-    let newY = e.clientY - rect.top - offsetY;
+    const rect = cat.el.getBoundingClientRect();
+    dragOffsetX = clientX - rect.left;
+    dragOffsetY = clientY - rect.top;
+    
+    cat.el.classList.add("cat-dragging");
+  }
 
-    newX = Math.max(0, Math.min(newX, rect.width - cat.el.clientWidth));
-    newY = Math.max(0, Math.min(newY, rect.height - cat.el.clientHeight));
-
-    cat.x = newX;
-    cat.y = newY;
-    cat.el.style.left = `${newX}px`;
-    cat.el.style.top = `${newY}px`;
+  // Mouse drag start
+  cat.el.addEventListener("mousedown", (e) => {
+    // Prevent default behavior (e.g., image dragging)
+    e.preventDefault();
+    handleCatDragStart(e.clientX, e.clientY);
   });
-
-  document.addEventListener("mouseup", () => {
-    if (!isDragging) return;
-    isDragging = false;
-    cat.el.style.cursor = 'grab';
-    cat.el.style.zIndex = 2;
-    // --- NEW: Re-add transition class after dragging ---
-    cat.el.classList.remove("cat-dragging");
-    checkMerge(cat);
-  });
+  
+  // Touch drag start
+  cat.el.addEventListener("touchstart", (e) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      handleCatDragStart(touch.clientX, touch.clientY);
+    }
+    // We don't preventDefault here to allow "click" events to fire
+  }, { passive: true }); // Use passive: true for better scroll performance if not preventing default
 }
+// --- END MODIFIED: makeDraggable ---
+
 
 function checkMerge(cat) {
   // Don't check for merge if cat is already animating (merging)
@@ -727,42 +730,39 @@ function spawnFishSnack() {
   makeSnackDraggable(snack);
 }
 
+// --- MODIFIED: makeSnackDraggable (Refactored for Touch and Mouse) ---
 function makeSnackDraggable(snack) {
-  let offsetX, offsetY;
-  let isDragging = false;
-
-  snack.el.addEventListener("mousedown", (e) => {
+  
+  function handleSnackDragStart(clientX, clientY) {
+    if (isDragging) return; // Don't start a new drag
     isDragging = true;
+    draggedItem = { type: 'snack', item: snack };
+    
     snack.el.style.cursor = 'grabbing';
     snack.el.style.zIndex = 20; // Topmost
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
+
+    const rect = snack.el.getBoundingClientRect();
+    dragOffsetX = clientX - rect.left;
+    dragOffsetY = clientY - rect.top;
+  }
+
+  // Mouse drag start
+  snack.el.addEventListener("mousedown", (e) => {
+    // Prevent default behavior (e.g., image dragging)
+    e.preventDefault();
+    handleSnackDragStart(e.clientX, e.clientY);
   });
 
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-    const rect = board.getBoundingClientRect();
-    
-    let newX = e.clientX - rect.left - offsetX;
-    let newY = e.clientY - rect.top - offsetY;
-
-    newX = Math.max(0, Math.min(newX, rect.width - snack.el.clientWidth));
-    newY = Math.max(0, Math.min(newY, rect.height - snack.el.clientHeight));
-
-    snack.x = newX;
-    snack.y = newY;
-    snack.el.style.left = `${newX}px`;
-    snack.el.style.top = `${newY}px`;
-  });
-
-  document.addEventListener("mouseup", () => {
-    if (!isDragging) return;
-    isDragging = false;
-    snack.el.style.cursor = 'grab';
-    snack.el.style.zIndex = 15;
-    checkSnackDrop(snack);
-  });
+  // Touch drag start
+  snack.el.addEventListener("touchstart", (e) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      handleSnackDragStart(touch.clientX, touch.clientY);
+    }
+  }, { passive: true });
 }
+// --- END MODIFIED: makeSnackDraggable ---
+
 
 function checkSnackDrop(snack) {
   // Snacks can only be given to cats on Stage 1
@@ -981,3 +981,74 @@ setInterval(() => {
     }
   });
 }, 2500); // Runs every 2.5 seconds
+
+
+// --- NEW: GLOBAL DRAG HANDLERS (for Touch and Mouse) ---
+
+function handleDragMove(clientX, clientY) {
+  if (!isDragging || !draggedItem) return;
+
+  const { item } = draggedItem;
+  const rect = board.getBoundingClientRect();
+  
+  let newX = clientX - rect.left - dragOffsetX;
+  let newY = clientY - rect.top - dragOffsetY;
+
+  // Clamp to board boundaries
+  newX = Math.max(0, Math.min(newX, rect.width - item.el.clientWidth));
+  newY = Math.max(0, Math.min(newY, rect.height - item.el.clientHeight));
+
+  item.x = newX;
+  item.y = newY;
+  item.el.style.left = `${newX}px`;
+  item.el.style.top = `${newY}px`;
+}
+
+function handleDragEnd() {
+  if (!isDragging || !draggedItem) return;
+
+  const { type, item } = draggedItem;
+
+  if (type === 'cat') {
+    item.el.style.cursor = 'grab';
+    item.el.style.zIndex = 2;
+    item.el.classList.remove("cat-dragging");
+    // Check for merge
+    checkMerge(item);
+  } else if (type === 'snack') {
+    item.el.style.cursor = 'grab';
+    item.el.style.zIndex = 15;
+    // Check for drop
+    checkSnackDrop(item);
+  }
+
+  isDragging = false;
+  draggedItem = null;
+}
+
+// --- Global Mouse Listeners ---
+document.addEventListener("mousemove", (e) => {
+  handleDragMove(e.clientX, e.clientY);
+});
+document.addEventListener("mouseup", () => {
+  handleDragEnd();
+});
+
+// --- Global Touch Listeners ---
+document.addEventListener("touchmove", (e) => {
+  if (!isDragging) return;
+  e.preventDefault(); // Prevent screen from scrolling
+  if (e.touches.length > 0) {
+    const touch = e.touches[0];
+    handleDragMove(touch.clientX, touch.clientY);
+  }
+}, { passive: false }); // We must set passive: false to allow preventDefault
+
+document.addEventListener("touchend", (e) => {
+  handleDragEnd();
+});
+
+document.addEventListener("touchcancel", () => {
+  // Handle cases where the touch is interrupted (e.g., by a system alert)
+  handleDragEnd();
+});
