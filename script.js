@@ -158,7 +158,8 @@ const upgrades = [
 // --- FIX 2: Play Music Function (This is the only place we call .play()) ---
 function playMusic() {
   if (isMusicStarted || !bgMusic) return;
-  bgMusic.volume = parseFloat(volumeSlider.value);
+  // MODIFIED: Scale slider value (0-1) to actual volume (0-0.2)
+  bgMusic.volume = parseFloat(volumeSlider.value) / 5.0;
   bgMusic.play().then(() => {
     isMusicStarted = true;
   }).catch(e => {
@@ -1165,9 +1166,10 @@ function resetGameState() {
   setBoardBackground(0);
 
   // --- FIX 2 & 3: Reset Volume ---
-  volumeSlider.value = 0.1;
-  volumeValue.textContent = "10";
-  if (bgMusic) bgMusic.volume = 0.1;
+  // MODIFIED: Default slider value is 0.5 (50%), actual volume will be 0.1
+  volumeSlider.value = 0.5;
+  volumeValue.textContent = "50";
+  if (bgMusic) bgMusic.volume = 0.5 / 5.0;
   // --- END FIX 2 & 3 ---
 }
 // --- END FIX 1 ---
@@ -1205,7 +1207,7 @@ function getSaveData() {
     catsByStage: savedCats,
     upgrades: savedUpgrades,
     catTypes: savedCatTypes,
-    volume: parseFloat(volumeSlider.value), // <-- FIX 2 & 3
+    sliderValue: parseFloat(volumeSlider.value), // MODIFIED: Save slider value, not actual volume
     saveTime: Date.now() // Good to have
   };
 }
@@ -1237,10 +1239,11 @@ function loadGame() {
     autoOpenBeds = data.autoOpenBeds || false; // gets re-checked by trigger
 
     // --- FIX 2 & 3: Load Volume ---
-    const volume = data.volume !== undefined ? data.volume : 0.1;
-    volumeSlider.value = volume;
-    volumeValue.textContent = (volume * 100).toFixed(0);
-    if (bgMusic) bgMusic.volume = volume;
+    // MODIFIED: Load the sliderValue (default 0.5), then calculate actual volume
+    const sliderValue = data.sliderValue !== undefined ? data.sliderValue : 0.5;
+    volumeSlider.value = sliderValue;
+    volumeValue.textContent = (sliderValue * 100).toFixed(0);
+    if (bgMusic) bgMusic.volume = sliderValue / 5.0;
     // --- END FIX 2 & 3 ---
 
     // 2. Restore upgrade levels
@@ -1462,11 +1465,12 @@ openOptionsBtn.addEventListener("click", () => {
 });
 
 volumeSlider.addEventListener("input", (e) => {
-  const volume = parseFloat(e.target.value);
+  // MODIFIED: Get sliderValue and scale it for actual volume
+  const sliderValue = parseFloat(e.target.value);
   if (bgMusic) {
-    bgMusic.volume = volume;
+    bgMusic.volume = sliderValue / 5.0;
   }
-  volumeValue.textContent = (volume * 100).toFixed(0);
+  volumeValue.textContent = (sliderValue * 100).toFixed(0);
   // Removed the playMusic call here, it's covered by the global mousedown/touchstart/keydown listener.
 });
 
@@ -1623,3 +1627,4 @@ document.addEventListener("touchcancel", () => {
   // Handle cases where the touch is interrupted (e.g., by a system alert)
   handleDragEnd();
 });
+
