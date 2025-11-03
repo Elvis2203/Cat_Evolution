@@ -218,6 +218,11 @@ body {
   .ui-open-btn {
     max-width: none; /* Allow full stretch */
   }
+  
+  /* --- FIX 4: Adjust reset button on mobile --- */
+  #reset-btn {
+    flex-grow: 1 !important; /* Allow it to fill like other buttons */
+  }
 }
 
 /* --- Entities (Cats & Beds) --- */
@@ -239,7 +244,8 @@ body {
               box-shadow 0.3s, 
               left 0.7s cubic-bezier(0.68, -0.55, 0.27, 1.55), 
               top 0.7s cubic-bezier(0.68, -0.55, 0.27, 1.55),
-              opacity 0.5s;
+              opacity 0.5s,
+              visibility 0s; /* Visibility changes instantly */
 }
 
 .cat:active {

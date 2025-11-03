@@ -34,6 +34,8 @@
   <div class="ui-container">
     <button id="open-shop-btn" class="ui-open-btn">🛒 Cat Shop</button>
     <button id="open-upgrades-btn" class="ui-open-btn">🚀 Upgrades</button>
+    <!-- FIX 4: Reset Button -->
+    <button id="reset-btn" class="ui-open-btn" style="flex-grow: 0.5; background: #ffe0e0; border-color: #d9534f; color: #d9534f;">Reset</button>
   </div>
 
   <!-- --- Modals (Hidden by default) --- -->
@@ -63,6 +65,18 @@
     <div class="modal-content" style="width: 300px; height: auto; min-height: 150px; justify-content: center;">
       <p id="alert-message" style="text-align: center; margin-bottom: 20px;"></p>
       <button id="alert-close-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; width: 80px; margin: 0 auto;">OK</button>
+    </div>
+  </div>
+  
+  <!-- FIX 4: Reset Confirm Modal -->
+  <div id="reset-modal" class="modal">
+    <div class="modal-content" style="width: 300px; height: auto; min-height: 150px; justify-content: center;">
+      <h3 style="text-align: center;">Reset Game?</h3>
+      <p style="text-align: center; margin-bottom: 20px;">Are you sure you want to delete all progress? This cannot be undone.</p>
+      <div style="display: flex; justify-content: space-around;">
+        <button id="reset-confirm-btn" style="padding: 10px 20px; background: #cc4444; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100px;">Yes, Reset</button>
+        <button id="reset-cancel-btn" style="padding: 10px 20px; background: #888; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100px;">Cancel</button>
+      </div>
     </div>
   </div>
 
