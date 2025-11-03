@@ -23,8 +23,8 @@ const stageBtns = document.querySelectorAll(".stage-btn");
 
 // --- Game State ---
 const MAX_ENTITIES = 15;
-let coins = 0;
-let coinsPerSec = 0;
+let coins = 0.0; // MODIFIED: Start as float
+let coinsPerSec = 0.0; // MODIFIED: Start as float
 let nextId = 1;
 let deliveryInterval = null;
 let maxLevelUnlocked = 0;
@@ -56,11 +56,12 @@ let dragOffsetY = 0;
 // --- Game Data ---
 
 // Helper function to generate cat data
+// MODIFIED: Removed income calculation from here
 function createCatType(level, name, basePrice) {
   return {
     level: level,
     name: name,
-    income: Math.ceil(level * level / 2), // Formula: LVL*LVL/2
+    // income: Is now calculated recursively after array is created
     basePrice: basePrice,
     currentPrice: basePrice, // Initial price is base price
     purchaseCount: 0, // Track purchases
@@ -91,6 +92,21 @@ const catTypes = [
   createCatType(14, "Cosmic Cat", catBasePrices[13]),
   createCatType(15, "Omni Cat", catBasePrices[14]),
 ];
+
+// --- NEW: Calculate income recursively ---
+// Formula: cat1 = 1, catN = cat(N-1)*2 + cat(N-1)/1.5
+for (let i = 0; i < catTypes.length; i++) {
+  if (i === 0) {
+    // Level 1 (index 0)
+    catTypes[i].income = 1.0; // cat1 = 1 c/s
+  } else {
+    // Level n (index i)
+    const prevIncome = catTypes[i - 1].income;
+    // catn = cat(n-1)*2 + cat(n-1)/1.5
+    catTypes[i].income = prevIncome * 2 + (prevIncome / 1.5);
+  }
+}
+// --- END: New income calculation ---
 
 const upgrades = [
   {
@@ -160,45 +176,61 @@ function unlockStage(stageIndex) {
 // --- Core Game Loop ---
 
 // This function ONLY updates the coin text display
+// MODIFIED: Show 1 decimal place
 function updateCoinDisplay() {
-  coinsEl.textContent = Math.floor(coins).toLocaleString();
-  coinsPerSecEl.textContent = coinsPerSec.toLocaleString();
+  coinsEl.textContent = coins.toLocaleString(undefined, { 
+    minimumFractionDigits: 1, 
+    maximumFractionDigits: 1 
+  });
+  coinsPerSecEl.textContent = coinsPerSec.toLocaleString(undefined, { 
+    minimumFractionDigits: 1, 
+    maximumFractionDigits: 1 
+  });
 }
 
+// --- MODIFIED: Coin update loop ---
 // Coin update runs 10 times per second (100ms)
 setInterval(() => {
-  let incomeThisTick = 0;
+  let incomeThisTick = 0; // This is the total PER-SECOND income rate
   
   for (const stage of catsByStage) {
     stage.forEach(cat => {
-      // 1. Add base income
-      incomeThisTick += catTypes[cat.level - 1].income;
-      
+      const catIncome = catTypes[cat.level - 1].income; // This is now a float
+
       // --- NEW: Check for fish snack buff ---
       if (cat.snackBuffEndTime && Date.now() < cat.snackBuffEndTime) {
-        // Buff is active! Add income again (effectively doubling it)
-        incomeThisTick += catTypes[cat.level - 1].income;
+        // Buff is active!
+        // Add 10x its income to the per-second rate
+        incomeThisTick += catIncome * 10;
         
         // --- ADDED: Squish and drop coin ball every tick (0.1s) while buffed ---
         triggerCatSquish(cat); 
         dropBall(cat.el);
         // ---------------------------------------------------------------------
 
-      } else if (cat.snackBuffEndTime && Date.now() >= cat.snackBuffEndTime) {
-        // Buff expired
-        cat.snackBuffEndTime = null;
-        if(cat.el) cat.el.style.boxShadow = "none";
+      } else {
+        // Buff is not active
+        // 1. Add base income
+        incomeThisTick += catIncome;
+      
+        if (cat.snackBuffEndTime && Date.now() >= cat.snackBuffEndTime) {
+          // Buff expired
+          cat.snackBuffEndTime = null;
+          if(cat.el) cat.el.style.boxShadow = "none";
+        }
       }
       // --- End of new buff check ---
     });
   }
   
+  // Add 1/10th of the total per-second rate to coins
   coins += (incomeThisTick / 10); 
-  coinsPerSec = incomeThisTick; 
+  coinsPerSec = incomeThisTick; // This will correctly show the 10x rate
 
   // Only update the text, don't re-render all buttons
   updateCoinDisplay();
 }, 100);
+// --- END MODIFIED: Coin update loop ---
 
 // --- Stage Management ---
 
@@ -356,7 +388,7 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
     if (cat.el.style.cursor === 'grabbing') return;
     
     // Earn coins
-    const earned = catType.income;
+    const earned = catType.income; // This is now a float
     coins += earned; 
     updateCoinDisplay(); // Just update text
     
@@ -562,16 +594,17 @@ function renderShop() {
   }
 
   availableCats.forEach(catToShow => {
-    const price = catToShow.currentPrice;
+    const price = catToShow.currentPrice; // Prices are still integers
     const btn = document.createElement("button");
     
     // MODIFIED: Determine the cat's home stage
     const targetStage = getStageForLevel(catToShow.level);
 
     // MODIFIED: Update button text to show target stage AND purchase count
+    // MODIFIED: Format income to 1 decimal place
     btn.innerHTML = `Buy ${catToShow.name} (Stage ${targetStage + 1})
                      <br>Cost: ${price.toLocaleString()}
-                     <br>Income: ${catToShow.income}/s
+                     <br>Income: ${catToShow.income.toFixed(1)}/s
                      <br>Purchased: ${catToShow.purchaseCount.toLocaleString()}`;
     
     // MODIFIED: Check entity count for the *target* stage
@@ -596,7 +629,8 @@ function renderShop() {
          
          // Increment purchase count and update current price
          catToShow.purchaseCount++;
-         catToShow.currentPrice = Math.round(catToShow.currentPrice * 1.25 + 50);
+         // Prices are still rounded to integers
+         catToShow.currentPrice = Math.round(catToShow.currentPrice * 1.25 + 50); 
          
          // Manually update display and re-render modals on purchase
          updateCoinDisplay(); 
