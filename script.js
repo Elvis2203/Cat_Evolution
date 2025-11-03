@@ -5,22 +5,30 @@ const coinsEl = document.getElementById("coins");
 const coinsPerSecEl = document.getElementById("coinsPerSec");
 const bedTracker = document.getElementById("bed-tracker");
 const bedTimerEl = document.getElementById("bed-timer");
+const bgMusic = document.getElementById("bg-music"); // <-- FIX 2
 
 // Modals
 const shopModal = document.getElementById("shop-modal");
 const upgradesModal = document.getElementById("upgrades-modal");
 const alertModal = document.getElementById("alert-modal");
 const alertMessage = document.getElementById("alert-message");
-const resetModal = document.getElementById("reset-modal"); // <-- FIX 4
+const resetModal = document.getElementById("reset-modal");
+const optionsModal = document.getElementById("options-modal"); // <-- FIX 3
 
 // Modal Buttons
 const openShopBtn = document.getElementById("open-shop-btn");
 const openUpgradesBtn = document.getElementById("open-upgrades-btn");
 const closeBtns = document.querySelectorAll(".close-btn");
 const alertCloseBtn = document.getElementById("alert-close-btn");
-const resetBtn = document.getElementById("reset-btn"); // <-- FIX 4
-const resetConfirmBtn = document.getElementById("reset-confirm-btn"); // <-- FIX 4
-const resetCancelBtn = document.getElementById("reset-cancel-btn"); // <-- FIX 4
+const resetConfirmBtn = document.getElementById("reset-confirm-btn");
+const resetCancelBtn = document.getElementById("reset-cancel-btn");
+
+// --- FIX 3: Options Modal Elements ---
+const openOptionsBtn = document.getElementById("open-options-btn");
+const volumeSlider = document.getElementById("volume-slider");
+const volumeValue = document.getElementById("volume-value");
+const resetBtn = document.getElementById("reset-btn"); // This is now the button inside the options modal
+// --- END FIX 3 ---
 
 // Stage Buttons
 const stageBtns = document.querySelectorAll(".stage-btn");
@@ -32,7 +40,8 @@ let coinsPerSec = 0.0; // MODIFIED: Start as float
 let nextId = 1;
 let deliveryInterval = null;
 let maxLevelUnlocked = 0;
-let autoOpenBeds = false; // <-- FIX 3
+let autoOpenBeds = false;
+let isMusicStarted = false; // <-- FIX 2
 
 // Bed Timer State
 let bedTimerInterval = null;
@@ -121,8 +130,8 @@ const upgrades = [
     description: "Spawns a cat bed on Stage 1.",
     baseCost: 100,
     level: 0,
-    maxLevel: 10, 
-    unlocked: true, 
+    maxLevel: 10,
+    unlocked: true,
   },
   {
     id: "autoMerge",
@@ -130,7 +139,7 @@ const upgrades = [
     description: "Automatically merges matching cats (Lvl 1-5) on Stage 1.",
     baseCost: 80000,
     level: 0,
-    unlocked: false, 
+    unlocked: false,
   },
   {
     id: "fishSnack",
@@ -145,6 +154,19 @@ const upgrades = [
 
 
 // --- Helper Functions ---
+
+// --- FIX 2: Play Music Function (This is the only place we call .play()) ---
+function playMusic() {
+  if (isMusicStarted || !bgMusic) return;
+  bgMusic.volume = parseFloat(volumeSlider.value);
+  bgMusic.play().then(() => {
+    isMusicStarted = true;
+  }).catch(e => {
+    // This is expected if the user interaction wasn't trusted (e.g., programmatic click)
+    console.warn("Audio play failed, user must interact directly with a trusted element first.", e);
+  });
+}
+// --- END FIX 2 ---
 
 function getStageForLevel(level) {
   if (level <= 5) return 0;
@@ -173,10 +195,10 @@ function unlockStage(stageIndex) {
     if (stageIndex === 1) {
       const autoMergeUpg = upgrades.find(upg => upg.id === "autoMerge");
       if (autoMergeUpg) autoMergeUpg.unlocked = true;
-      
+
       const fishSnackUpg = upgrades.find(upg => upg.id === "fishSnack");
       if (fishSnackUpg) fishSnackUpg.unlocked = true;
-      
+
       showModalAlert("New Upgrades Unlocked: Auto Merge & Fish Snack!");
     }
   }
@@ -187,13 +209,13 @@ function unlockStage(stageIndex) {
 // This function ONLY updates the coin text display
 // MODIFIED: Show 1 decimal place
 function updateCoinDisplay() {
-  coinsEl.textContent = coins.toLocaleString(undefined, { 
-    minimumFractionDigits: 1, 
-    maximumFractionDigits: 1 
+  coinsEl.textContent = coins.toLocaleString(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
   });
-  coinsPerSecEl.textContent = coinsPerSec.toLocaleString(undefined, { 
-    minimumFractionDigits: 1, 
-    maximumFractionDigits: 1 
+  coinsPerSecEl.textContent = coinsPerSec.toLocaleString(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
   });
 }
 
@@ -201,13 +223,13 @@ function updateCoinDisplay() {
 // Coin update runs 10 times per second (100ms)
 setInterval(() => {
   let incomeThisTick = 0; // This is the total PER-SECOND income rate
-  
+
   // --- FIX 3: Iterate with stage index ---
   for (let i = 0; i < catsByStage.length; i++) {
     const stage = catsByStage[i];
     const isStageVisible = (i === currentStage);
     // --- END FIX 3 ---
-    
+
     stage.forEach(cat => {
       const catIncome = catTypes[cat.level - 1].income; // This is now a float
 
@@ -216,10 +238,10 @@ setInterval(() => {
         // Buff is active!
         // Add 10x its income to the per-second rate
         incomeThisTick += catIncome * 10;
-        
+
         // --- FIX 3: Only animate if cat is on the current stage ---
         if (isStageVisible) {
-            triggerCatSquish(cat); 
+            triggerCatSquish(cat);
             dropBall(cat.el);
         }
         // --- END FIX 3 ---
@@ -228,7 +250,7 @@ setInterval(() => {
         // Buff is not active
         // 1. Add base income
         incomeThisTick += catIncome;
-      
+
         if (cat.snackBuffEndTime && Date.now() >= cat.snackBuffEndTime) {
           // Buff expired
           cat.snackBuffEndTime = null;
@@ -238,9 +260,9 @@ setInterval(() => {
       // --- End of new buff check ---
     });
   } // --- FIX 3: End of new for loop ---
-  
+
   // Add 1/10th of the total per-second rate to coins
-  coins += (incomeThisTick / 10); 
+  coins += (incomeThisTick / 10);
   coinsPerSec = incomeThisTick; // This will correctly show the 10x rate
 
   // Only update the text, don't re-render all buttons
@@ -280,17 +302,17 @@ function setBoardBackground(stageIndex) {
   const imageSrc = `images/board/board${stageIndex + 1}.png`;
 
   const img = new Image();
-  
+
   img.onload = function() {
     // Image loaded, get dimensions and store aspect ratio
     const imgWidth = this.naturalWidth;
     const imgHeight = this.naturalHeight;
     currentBoardRatio = imgHeight / imgWidth; // Store aspect ratio
-    
+
     resizeBoard(); // Call resize function to apply it
     board.style.backgroundImage = imageUrl;
   };
-  
+
   img.onerror = function() {
     // Fallback on error
     console.error(`Failed to load board image: ${imageSrc}`);
@@ -298,7 +320,7 @@ function setBoardBackground(stageIndex) {
     resizeBoard();
     board.style.backgroundImage = imageUrl;
   };
-  
+
   // Start loading the image
   img.src = imageSrc;
 }
@@ -309,7 +331,7 @@ function resizeBoard() {
   // Get the computed width (handles 500px on desktop, 90vw on mobile, etc.)
   const currentWrapperWidthStyle = window.getComputedStyle(boardWrapper).width;
   const currentWrapperWidth = parseFloat(currentWrapperWidthStyle.replace('px', ''));
-  
+
   // Set the new height based on the width and stored ratio
   const newHeight = currentWrapperWidth * currentBoardRatio;
   boardWrapper.style.height = `${newHeight}px`;
@@ -332,7 +354,7 @@ function switchStage(newStage) {
   stageBtns.forEach((btn, index) => {
     btn.classList.toggle("active", index === newStage);
   });
-  
+
   for (let i = 0; i < catsByStage.length; i++) {
     catsByStage[i].forEach(cat => {
       cat.el.style.display = (i === newStage) ? "flex" : "none";
@@ -344,13 +366,13 @@ function switchStage(newStage) {
       bed.el.style.display = (i === newStage) ? "flex" : "none";
     });
   }
-  
+
   // --- FIX 2: Show/Hide Fish Snacks (by stageIndex) ---
   activeFishSnacks.forEach(snack => {
     snack.el.style.display = (newStage === snack.stageIndex) ? "block" : "none";
   });
   // --- END FIX 2 ---
-  
+
   // Note: renderShop() and renderUpgrades() are called when modals are opened
 }
 
@@ -369,6 +391,7 @@ function spawnBed(x, y, stageIndex, autoOpen = false) {
 
   if (autoOpen) {
     // Auto-open: just spawn the cat directly
+    // The previous fix removed playMusic() from here, which is correct.
     spawnCat(1, rx + 8, ry + 8, stageIndex, false); // Adjust for size diff
     return;
   }
@@ -379,17 +402,18 @@ function spawnBed(x, y, stageIndex, autoOpen = false) {
     x: rx, y: ry, stageIndex,
     el: document.createElement("div")
   };
-  
+
   bed.el.className = "bed";
   bed.el.style.left = `${rx}px`;
   bed.el.style.top = `${ry}px`;
   bed.el.style.backgroundImage = `url('images/cats/bed.png')`;
   bed.el.style.display = (stageIndex === currentStage) ? "flex" : "none";
-  
+
   board.appendChild(bed.el);
   bedsByStage[stageIndex].push(bed);
 
   bed.el.addEventListener("click", () => {
+    // playMusic(); // <-- REMOVED: Relying on global body listener for first interaction
     bed.el.remove();
     bedsByStage[stageIndex] = bedsByStage[stageIndex].filter(b => b.id !== bed.id);
     const catX = parseFloat(bed.el.style.left.replace('px', '')) + 8; // Adjust for size difference
@@ -404,7 +428,7 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
     showModalAlert(`Stage ${stageIndex + 1} is full! Merge cats to make space.`);
     return null;
   }
-  
+
   if (level > maxLevelUnlocked) {
     maxLevelUnlocked = level;
     // No need to re-render shop here, it renders on open
@@ -421,7 +445,7 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
     snackBuffEndTime: null, // NEW: Property for fish snack
     el: document.createElement("div")
   };
-  
+
   cat.el.className = "cat";
   cat.el.style.backgroundImage = `url('images/cats/${level}.png')`;
   cat.el.style.left = `${x}px`;
@@ -443,12 +467,12 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
 
   cat.el.addEventListener("click", () => {
     if (cat.el.style.cursor === 'grabbing') return;
-    
+
     // Earn coins
     const earned = catType.income; // This is now a float
-    coins += earned; 
+    coins += earned;
     updateCoinDisplay(); // Just update text
-    
+
     // Trigger animations
     triggerCatSquish(cat);
     dropBall(cat.el);
@@ -462,19 +486,20 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
 
 // --- MODIFIED: makeDraggable (Refactored for Touch and Mouse) ---
 function makeDraggable(cat) {
-  
+
   function handleCatDragStart(clientX, clientY) {
     if (isDragging) return; // Don't start a new drag
+    // playMusic(); // <-- REMOVED: Relying on global body listener for first interaction
     isDragging = true;
     draggedItem = { type: 'cat', item: cat };
-    
+
     cat.el.style.cursor = 'grabbing';
     cat.el.style.zIndex = 10;
-    
+
     const rect = cat.el.getBoundingClientRect();
     dragOffsetX = clientX - rect.left;
     dragOffsetY = clientY - rect.top;
-    
+
     cat.el.classList.add("cat-dragging");
   }
 
@@ -484,7 +509,7 @@ function makeDraggable(cat) {
     e.preventDefault();
     handleCatDragStart(e.clientX, e.clientY);
   });
-  
+
   // Touch drag start
   cat.el.addEventListener("touchstart", (e) => {
     if (e.touches.length > 0) {
@@ -505,26 +530,26 @@ function checkMerge(cat) {
     if (other.id === cat.id) continue;
     // Don't merge with a cat that is already merging
     if (other.el.classList.contains("cat-merging")) continue;
-    
+
     const dx = cat.x - other.x;
     const dy = cat.y - other.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (distance < 50 && cat.level === other.level) {
-      if (cat.level >= catTypes.length) return; 
+      if (cat.level >= catTypes.length) return;
       mergeCats(cat, other);
       break;
     }
   }
 }
 
-// --- MODIFIED: mergeCats function for animation ---
-// --- FIX 2: Modified mergeCats for c/s stability ---
+
+// --- FIX 2: Modified mergeCats for Stage Ascension ---
 function mergeCats(catA, catB) {
   const newLevel = catA.level + 1;
   const oldStage = catA.stageIndex;
   const newStage = getStageForLevel(newLevel);
-  
+
   const spawnX = (catA.x + catB.x) / 2;
   const spawnY = (catA.y + catB.y) / 2;
 
@@ -533,15 +558,19 @@ function mergeCats(catA, catB) {
 
   // --- FIX 2: Pre-spawn new cat for stable c/s ---
   let newCat = null;
+  const isFirstTimeUnlock = (newStage > maxStageUnlocked); // <-- Check *before* unlockStage
+
   if (newStage !== oldStage) {
-    unlockStage(newStage);
+    if (isFirstTimeUnlock) {
+      unlockStage(newStage); // This will update maxStageUnlocked
+    }
     // Spawn at default location on new stage
-    newCat = spawnCat(newLevel, 100, 100, newStage, true); 
+    newCat = spawnCat(newLevel, 100, 100, newStage, true);
   } else {
     // Spawn at merge location on same stage
     newCat = spawnCat(newLevel, spawnX, spawnY, oldStage, true);
   }
-  
+
   if (newCat) {
     // Hide it and make it non-interactive during animation.
     newCat.el.style.visibility = 'hidden';
@@ -552,33 +581,58 @@ function mergeCats(catA, catB) {
 
 
   // 2. Add merging class to trigger CSS animation
-  catA.el.classList.add("cat-merging");
-  catB.el.classList.add("cat-merging");
-  
+  // --- FIX 2 (Stage Ascend): Check for first time unlock ---
+  if (isFirstTimeUnlock) {
+      catA.el.classList.add("cat-ascending");
+      catB.el.classList.add("cat-ascending");
+  } else {
+      catA.el.classList.add("cat-merging");
+      catB.el.classList.add("cat-merging");
+  }
+  // --- END FIX 2 ---
+
   // 3. Calculate translation to center point
   const deltaXA = spawnX - catA.x;
   const deltaYA = spawnY - catA.y;
   const deltaXB = spawnX - catB.x;
   const deltaYB = spawnY - catB.y;
 
-  // 4. Apply transform to move cats to center and shrink
-  catA.el.style.transform = `translate(${deltaXA}px, ${deltaYA}px) scale(0.1)`;
-  catB.el.style.transform = `translate(${deltaXB}px, ${deltaYB}px) scale(0.1)`;
+  // 4. Apply transform
+  // --- FIX 2 (Stage Ascend): Modify transform logic ---
+  if (isFirstTimeUnlock) {
+      // Don't move to center. Just expand and fade in place.
+      catA.el.style.transform = `scale(5)`;
+      catB.el.style.transform = `scale(5)`;
+  } else {
+      // Original logic: move to center and shrink
+      catA.el.style.transform = `translate(${deltaXA}px, ${deltaYA}px) scale(0.1)`;
+      catB.el.style.transform = `translate(${deltaXB}px, ${deltaYB}px) scale(0.1)`;
+  }
+  // --- END FIX 2 ---
   catA.el.style.opacity = 0;
   catB.el.style.opacity = 0;
 
   // 5. Use setTimeout to wait for animation to finish
-  const animationDuration = 500; // Must match .cat-merging transition duration
+  // --- FIX 2 (Stage Ascend): Use longer duration for ascend ---
+  const animationDuration = isFirstTimeUnlock ? 1500 : 500; // 1.5s for ascend, 0.5s for normal merge
+  // --- END FIX 2 ---
+
   setTimeout(() => {
     // 6. Remove old cat elements
     catA.el.remove();
     catB.el.remove();
 
+    // --- FIX 2 (Stage Ascend): Switch stage if first time ---
+    if (isFirstTimeUnlock) {
+        switchStage(newStage); // <-- THE AUTO-SWITCH
+    }
+    // --- END FIX 2 ---
+
     // --- FIX 2: Reveal pre-spawned cat ---
     if (newCat) {
         newCat.el.style.visibility = 'visible';
         newCat.el.style.pointerEvents = 'auto';
-        
+
         // Re-trigger spawn animation (spawnCat already did it, but it was hidden)
         newCat.el.classList.add("cat-spawn");
         setTimeout(() => {
@@ -592,7 +646,7 @@ function mergeCats(catA, catB) {
 
 // --- UI Rendering ---
 
-// --- FIX 4: Updated renderUpgrades ---
+// --- FIX 1: Reverted renderUpgrades ---
 function renderUpgrades() {
   const container = document.getElementById("upgradeItems");
   container.innerHTML = "";
@@ -602,7 +656,7 @@ function renderUpgrades() {
   availableUpgrades.forEach(upg => {
     let price;
     let levelUpText = "";
-    
+
     if (upg.id === 'delivery') {
       price = Math.round(upg.baseCost * Math.pow(10, upg.level));
       // Delivery Level Text
@@ -613,7 +667,7 @@ function renderUpgrades() {
       } else if (upg.level === upg.maxLevel - 1) {
           levelUpText = `Next Level: AUTO-OPEN BEDS!`;
       }
-      
+
     } else if (upg.id === 'autoMerge') {
       price = Math.round(upg.baseCost * Math.pow(10, upg.level));
       // AutoMerge Level Text
@@ -639,34 +693,35 @@ function renderUpgrades() {
     } else {
       price = Math.round(upg.baseCost * Math.pow(1.5, upg.level));
     }
-    
+
     // Check for Max Level
     if (upg.maxLevel && upg.level >= upg.maxLevel) {
       const btn = document.createElement("button");
       btn.textContent = `${upg.name} (Lvl MAX)`;
       btn.disabled = true;
-      // Set title for maxed items
-      if (upg.id === 'delivery') {
-          btn.title = `${upg.description}\nAUTO-OPEN BEDS (1/s)`;
-      } else {
-          btn.title = `${upg.description}\n${levelUpText}`;
-      }
       container.appendChild(btn);
+
+      // Add description element
+      const descEl = document.createElement("div");
+      descEl.className = "upgrade-description";
+      if (upg.id === 'delivery') levelUpText = `AUTO-OPEN BEDS (1/s)`;
+      descEl.innerHTML = `${upg.description}<br><span style="color: #0056b3; font-weight: bold;">${levelUpText}</span>`;
+      container.appendChild(descEl);
+
       return; // Skip to next upgrade
     }
 
     const btn = document.createElement("button");
     btn.textContent = `${upg.name} (Lvl ${upg.level}) - ${price.toLocaleString()} coins`;
     btn.disabled = coins < price;
-    btn.title = `${upg.description}\n${levelUpText}`; // Set combined title
-    btn.dataset.cost = price; 
+    btn.dataset.cost = price;
 
     btn.addEventListener("click", () => {
       if (coins < price) return;
-      
+
       coins -= price;
       upg.level++;
-      
+
       if (upg.id === "delivery") {
         triggerDeliveryUpgrade(upg.level);
       } else if (upg.id === "autoMerge") {
@@ -674,16 +729,22 @@ function renderUpgrades() {
       } else if (upg.id === "fishSnack") {
         triggerFishSnackUpgrade(upg.level);
       }
-      
+
       // Manually update display and re-render modals on purchase
       updateCoinDisplay();
       renderUpgrades();
       renderShop(); // Re-render shop in case coin change disabled buttons
     });
     container.appendChild(btn);
+
+    // Add description element
+    const descEl = document.createElement("div");
+    descEl.className = "upgrade-description";
+    descEl.innerHTML = `${upg.description}<br><span style="color: #0056b3; font-weight: bold;">${levelUpText}</span>`;
+    container.appendChild(descEl);
   });
 }
-// --- END FIX 4 ---
+// --- END FIX 1 ---
 
 
 function renderShop() {
@@ -697,16 +758,16 @@ function renderShop() {
   const availableCats = catTypes.filter(cat => {
     // Condition A: It's the Level 1 cat (always available)
     if (cat.level === 1) return true;
-    
+
     // Condition B: It's a "feeder" cat (level > 1 and at/below the cap)
     if (cat.level > 1 && cat.level <= shopLevelCap) return true;
 
     // If none of the above, it's not available
     return false;
   });
-  
+
   if (availableCats.length === 0) {
-    const defaultMsg = (maxLevelUnlocked < 1) ? 
+    const defaultMsg = (maxLevelUnlocked < 1) ?
       "Click the bed to get your first cat!" :
       "Unlock higher-level cats by merging!";
     shopContainer.innerHTML = `<p>${defaultMsg}</p>`;
@@ -716,7 +777,7 @@ function renderShop() {
   availableCats.forEach(catToShow => {
     const price = catToShow.currentPrice; // Prices are still integers
     const btn = document.createElement("button");
-    
+
     // MODIFIED: Determine the cat's home stage
     const targetStage = getStageForLevel(catToShow.level);
 
@@ -726,7 +787,7 @@ function renderShop() {
                      <br>Cost: ${price.toLocaleString()}
                      <br>Income: ${catToShow.income.toFixed(1)}/s
                      <br>Purchased: ${catToShow.purchaseCount.toLocaleString()}`;
-    
+
     // MODIFIED: Check entity count for the *target* stage
     btn.disabled = coins < price || getEntityCount(targetStage) >= MAX_ENTITIES;
     btn.dataset.cost = price; // <-- FIX 1
@@ -740,7 +801,7 @@ function renderShop() {
          }
          return;
       }
-      
+
       const rect = board.getBoundingClientRect();
       const rx = Math.random() * (rect.width - 64);
       const ry = Math.random() * (rect.height - 64);
@@ -748,14 +809,14 @@ function renderShop() {
       // MODIFIED: Spawn cat on the *target* stage
       if (spawnCat(catToShow.level, rx, ry, targetStage, false)) {
          coins -= price;
-         
+
          // Increment purchase count and update current price
          catToShow.purchaseCount++;
          // Prices are still rounded to integers
-         catToShow.currentPrice = Math.round(catToShow.currentPrice * 1.25 + 50); 
-         
+         catToShow.currentPrice = Math.round(catToShow.currentPrice * 1.25 + 50);
+
          // Manually update display and re-render modals on purchase
-         updateCoinDisplay(); 
+         updateCoinDisplay();
          renderShop();
          renderUpgrades(); // Re-render upgrades in case coin change disabled them
       }
@@ -769,7 +830,7 @@ function renderShop() {
 function triggerDeliveryUpgrade(newLevel) {
   if (deliveryInterval) clearInterval(deliveryInterval);
   if (bedTimerInterval) clearInterval(bedTimerInterval);
-  
+
   const deliveryUpg = upgrades.find(upg => upg.id === 'delivery');
 
   if (deliveryUpg && newLevel >= deliveryUpg.maxLevel) {
@@ -779,7 +840,7 @@ function triggerDeliveryUpgrade(newLevel) {
           autoOpenBeds = true;
           showModalAlert("Max Delivery Reached! Beds will now auto-open.");
       }
-      
+
       deliveryIntervalMs = 1000; // Spawn at max rate (1s)
       nextBedSpawnTime = Date.now() + deliveryIntervalMs;
       bedTracker.style.display = "inline-flex";
@@ -787,7 +848,7 @@ function triggerDeliveryUpgrade(newLevel) {
       // Spawning logic (auto-opening)
       deliveryInterval = setInterval(() => {
           // Pass true for autoOpen
-          spawnBed(null, null, 0, true); 
+          spawnBed(null, null, 0, true);
           nextBedSpawnTime = Date.now() + deliveryIntervalMs;
       }, deliveryIntervalMs);
 
@@ -804,16 +865,16 @@ function triggerDeliveryUpgrade(newLevel) {
   } else {
       // Not max level, normal timed bed logic
       deliveryIntervalMs = Math.max(1000, (10 - newLevel) * 1000);
-      
+
       if (deliveryIntervalMs <= 0) { // Failsafe
           if (deliveryInterval) clearInterval(deliveryInterval);
           if (bedTimerInterval) clearInterval(bedTimerInterval);
           bedTimerEl.textContent = "MAX";
           return;
       }
-      
+
       nextBedSpawnTime = Date.now() + deliveryIntervalMs;
-      bedTracker.style.display = "inline-flex"; 
+      bedTracker.style.display = "inline-flex";
 
       // Normal spawning logic
       deliveryInterval = setInterval(() => {
@@ -845,10 +906,10 @@ function triggerDeliveryUpgrade(newLevel) {
 
 function triggerAutoMergeUpgrade(newLevel) {
   if (autoMergeInterval) clearInterval(autoMergeInterval);
-  
+
   // Cooldown = 9 - level (min 1 second)
   const cooldownMs = Math.max(1000, (9 - newLevel) * 1000);
-  
+
   autoMergeInterval = setInterval(autoMergeCats, cooldownMs);
 }
 
@@ -856,23 +917,24 @@ function triggerAutoMergeUpgrade(newLevel) {
 function autoMergeCats() {
   // Only auto-merges on Stage 1 (index 0)
   const catsOnStage1 = catsByStage[0];
-  
+
   // Find cats to merge, starting from lowest level (1) up to level 5.
   // We stop at 5 because merging Lvl 5 creates Lvl 6, which moves to Stage 2.
   for (let level = 1; level <= 5; level++) {
     const catsToMerge = catsOnStage1.filter(c => c.level === level);
-    
+
     if (catsToMerge.length >= 2) {
       // Find two non-dragging cats
       const catA = catsToMerge[0];
       const catB = catsToMerge[1];
-      
+
       // Check if they are somehow being dragged or already merging
       if (catA.el.style.cursor === 'grabbing' || catB.el.style.cursor === 'grabbing' ||
-          catA.el.classList.contains('cat-merging') || catB.el.classList.contains('cat-merging')) {
+          catA.el.classList.contains('cat-merging') || catB.el.classList.contains('cat-merging') ||
+          catA.el.classList.contains('cat-ascending') || catB.el.classList.contains('cat-ascending')) {
         continue; // Skip this pair and check next level
       }
-      
+
       // console.log(`Auto-merging Lvl ${level} cats!`);
       mergeCats(catA, catB);
       return; // Stop after one merge, the interval will run again
@@ -883,20 +945,20 @@ function autoMergeCats() {
 
 function triggerFishSnackUpgrade(newLevel) {
   if (fishSnackInterval) clearInterval(fishSnackInterval);
-  
+
   // Cooldown = 130 - (10 * level) (min 10 seconds)
   const cooldownMs = Math.max(10000, (130 - (10 * newLevel)) * 1000);
-  
+
   // Spawn one immediately on first purchase
-  if (newLevel === 1) spawnFishSnack(); 
-  
+  if (newLevel === 1) spawnFishSnack();
+
   fishSnackInterval = setInterval(spawnFishSnack, cooldownMs);
 }
 
 // --- FIX 2: Modified spawnFishSnack ---
 function spawnFishSnack() {
   // Spawn on latest unlocked stage
-  const targetStage = maxStageUnlocked; 
+  const targetStage = maxStageUnlocked;
 
   const rect = board.getBoundingClientRect();
   const x = Math.random() * (rect.width - 48); // 48 is snack width
@@ -908,17 +970,17 @@ function spawnFishSnack() {
     stageIndex: targetStage, // Store the snack's stage
     el: document.createElement("div")
   };
-  
+
   snack.el.className = "fish-snack";
   snack.el.style.left = `${x}px`;
   snack.el.style.top = `${y}px`;
   snack.el.style.backgroundImage = `url('images/upgrades/fish.png')`;
   // Show only if player is on the snack's stage
   snack.el.style.display = (currentStage === targetStage) ? "block" : "none";
-  
+
   board.appendChild(snack.el);
   activeFishSnacks.push(snack);
-  
+
   makeSnackDraggable(snack);
 }
 // --- END FIX 2 ---
@@ -926,12 +988,12 @@ function spawnFishSnack() {
 
 // --- MODIFIED: makeSnackDraggable (Refactored for Touch and Mouse) ---
 function makeSnackDraggable(snack) {
-  
+
   function handleSnackDragStart(clientX, clientY) {
     if (isDragging) return; // Don't start a new drag
     isDragging = true;
     draggedItem = { type: 'snack', item: snack };
-    
+
     snack.el.style.cursor = 'grabbing';
     snack.el.style.zIndex = 20; // Topmost
 
@@ -966,10 +1028,10 @@ function checkSnackDrop(snack) {
     const dx = snack.x - cat.x;
     const dy = snack.y - cat.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (distance < 50) { // 50px collision radius
       giveSnackToCat(cat);
-      
+
       // Remove snack
       snack.el.remove();
       activeFishSnacks = activeFishSnacks.filter(s => s.id !== snack.id);
@@ -983,12 +1045,12 @@ function checkSnackDrop(snack) {
 // --- FIX 4: Modified to accept duration ---
 function giveSnackToCat(cat, duration = 10000) {
   if (!cat || cat.snackBuffEndTime) return; // Already has buff
-  
+
   cat.snackBuffEndTime = Date.now() + duration; // 10 second buff
-  
+
   // Add visual indicator
   if(cat.el) cat.el.style.boxShadow = "0 0 10px 5px #ff9900"; // Orange glow
-  
+
   // Set timeout to remove visual indicator
   setTimeout(() => {
     if (cat && cat.el) {
@@ -1010,14 +1072,14 @@ function dropBall(catElement) {
 
   const ball = document.createElement("div");
   ball.className = "coin-ball";
-  
+
   // Start ball from the center of the cat
   const startX = catElement.offsetLeft + (catElement.clientWidth / 2) - 10; // 10 is half ball width
   const startY = catElement.offsetTop + (catElement.clientHeight / 2) - 10; // 10 is half ball height
-  
+
   ball.style.left = `${startX}px`;
   ball.style.top = `${startY}px`;
-  
+
   // Add to board (which is the parent)
   board.appendChild(ball);
 
@@ -1032,7 +1094,7 @@ function triggerCatSquish(cat) {
   if (!cat || !cat.el || cat.el.classList.contains('cat-squish')) return;
 
   cat.el.classList.add('cat-squish');
-  
+
   // Remove class after animation
   setTimeout(() => {
     // Check if element still exists before removing class
@@ -1070,19 +1132,19 @@ function resetGameState() {
       upg.unlocked = false;
     }
   });
-  
+
   // 5. Reset catTypes prices
   catTypes.forEach(type => {
     type.currentPrice = type.basePrice;
     type.purchaseCount = 0;
   });
-  
+
   // 6. Stop all intervals
   if (deliveryInterval) clearInterval(deliveryInterval);
   if (bedTimerInterval) clearInterval(bedTimerInterval);
   if (autoMergeInterval) clearInterval(autoMergeInterval);
   if (fishSnackInterval) clearInterval(fishSnackInterval);
-  
+
   // 7. Reset UI
   bedTracker.style.display = 'none';
   stageBtns.forEach((btn, index) => {
@@ -1094,12 +1156,18 @@ function resetGameState() {
       }
   });
   setBoardBackground(0);
+
+  // --- FIX 2 & 3: Reset Volume ---
+  volumeSlider.value = 0.1;
+  volumeValue.textContent = "10";
+  if (bgMusic) bgMusic.volume = 0.1;
+  // --- END FIX 2 & 3 ---
 }
 // --- END FIX 1 ---
 
 function getSaveData() {
   // 1. Serialize cats (store minimal data)
-  const savedCats = catsByStage.map(stage => 
+  const savedCats = catsByStage.map(stage =>
     stage.map(cat => ({
       level: cat.level,
       x: cat.x,
@@ -1114,7 +1182,7 @@ function getSaveData() {
     id: upg.id,
     level: upg.level
   }));
-  
+
   // 3. Serialize cat prices
   const savedCatTypes = catTypes.map(type => ({
      level: type.level,
@@ -1130,6 +1198,7 @@ function getSaveData() {
     catsByStage: savedCats,
     upgrades: savedUpgrades,
     catTypes: savedCatTypes,
+    volume: parseFloat(volumeSlider.value), // <-- FIX 2 & 3
     saveTime: Date.now() // Good to have
   };
 }
@@ -1153,12 +1222,19 @@ function loadGame() {
 
   try {
     const data = JSON.parse(savedData);
-    
+
     // 1. Restore simple state
     coins = data.coins || 0;
     maxLevelUnlocked = data.maxLevelUnlocked || 0;
     maxStageUnlocked = data.maxStageUnlocked || 0;
     autoOpenBeds = data.autoOpenBeds || false; // gets re-checked by trigger
+
+    // --- FIX 2 & 3: Load Volume ---
+    const volume = data.volume !== undefined ? data.volume : 0.1;
+    volumeSlider.value = volume;
+    volumeValue.textContent = (volume * 100).toFixed(0);
+    if (bgMusic) bgMusic.volume = volume;
+    // --- END FIX 2 & 3 ---
 
     // 2. Restore upgrade levels
     if (data.upgrades) {
@@ -1169,7 +1245,7 @@ function loadGame() {
         }
       });
     }
-    
+
     // 3. Restore cat prices
     if (data.catTypes) {
       data.catTypes.forEach(savedType => {
@@ -1185,7 +1261,7 @@ function loadGame() {
     // Clear default bed (if any)
     bedsByStage[0].forEach(bed => bed.el.remove());
     bedsByStage = [[], [], []];
-    
+
     if (data.catsByStage) {
       data.catsByStage.forEach((stage, stageIndex) => {
         if(stage) {
@@ -1202,7 +1278,7 @@ function loadGame() {
         }
       });
     }
-    
+
     // 5. Restore stages
     for(let i = 0; i <= maxStageUnlocked; i++) {
         if(document.getElementById(`stage-btn-${i}`)) {
@@ -1213,7 +1289,7 @@ function loadGame() {
     if (maxStageUnlocked >= 1) {
         const autoMergeUpg = upgrades.find(upg => upg.id === "autoMerge");
         if (autoMergeUpg) autoMergeUpg.unlocked = true;
-        
+
         const fishSnackUpg = upgrades.find(upg => upg.id === "fishSnack");
         if (fishSnackUpg) fishSnackUpg.unlocked = true;
     }
@@ -1223,12 +1299,12 @@ function loadGame() {
     if (deliveryUpg && deliveryUpg.level > 0) {
       triggerDeliveryUpgrade(deliveryUpg.level);
     }
-    
+
     const autoMergeUpg = upgrades.find(upg => upg.id === 'autoMerge');
     if (autoMergeUpg && autoMergeUpg.level > 0) {
       triggerAutoMergeUpgrade(autoMergeUpg.level);
     }
-    
+
     const fishSnackUpg = upgrades.find(upg => upg.id === 'fishSnack');
     if (fishSnackUpg && fishSnackUpg.level > 0) {
       triggerFishSnackUpgrade(fishSnackUpg.level);
@@ -1236,7 +1312,7 @@ function loadGame() {
 
     console.log("Game Loaded.");
     return true; // Load successful
-    
+
   } catch (e) {
     console.error("Failed to load game:", e);
     localStorage.removeItem("catEvolutionSave"); // Corrupted save
@@ -1246,9 +1322,6 @@ function loadGame() {
 // --- END FIX 4 ---
 
 
-// --- Initial Setup & Event Listeners ---
-// ... (rest of your script.js code)
-
 // --- Image Preloading Function ---
 function preloadImages() {
   const imagesToLoad = [];
@@ -1257,7 +1330,7 @@ function preloadImages() {
   for (let i = 1; i <= catTypes.length; i++) {
     imagesToLoad.push(`images/cats/${i}.png`);
   }
-  
+
   // 2. Other Core Assets
   imagesToLoad.push('images/cats/bed.png');
   imagesToLoad.push('images/balls/ball1.PNG');
@@ -1266,19 +1339,19 @@ function preloadImages() {
   imagesToLoad.push('images/board/board1.png');
   imagesToLoad.push('images/board/board2.png');
   imagesToLoad.push('images/board/board3.png');
-  
+
   // 4. NEW: Upgrade Assets
   imagesToLoad.push('images/upgrades/fish.png');
 
 
   let loadedCount = 0;
   const totalCount = imagesToLoad.length;
-  
+
   imagesToLoad.forEach(src => {
     const img = new Image();
     // This line starts the download request
-    img.src = src; 
-    
+    img.src = src;
+
     // Optional: You could listen to 'onload' events to show a loading bar
     img.onload = () => {
       loadedCount++;
@@ -1293,6 +1366,30 @@ function preloadImages() {
   });
 }
 
+// --- *** NEW: Global Audio Initiator *** ---
+// This function will be called ONCE on the first user interaction
+// to get around browser autoplay policies.
+function initiateMusicPlayback() {
+  // console.log("User interaction detected, attempting to play music.");
+  playMusic();
+  
+  // Crucially, remove the listeners after successful or failed attempt
+  // so this only runs once.
+  document.body.removeEventListener('mousedown', initiateMusicPlayback, { once: true });
+  document.body.removeEventListener('touchstart', initiateMusicPlayback, { once: true });
+  document.body.removeEventListener('keydown', initiateMusicPlayback, { once: true });
+}
+
+// Add listeners that will call the initiator function ONCE.
+document.body.addEventListener('mousedown', initiateMusicPlayback, { once: true });
+document.body.addEventListener('touchstart', initiateMusicPlayback, { once: true });
+document.body.addEventListener('keydown', initiateMusicPlayback, { once: true });
+// --- *** END: Global Audio Initiator *** ---
+
+
+// --- Initial Setup & Event Listeners ---
+// ... (rest of your script.js code)
+
 
 // --- Initial Game Start ---
 
@@ -1304,7 +1401,7 @@ setBoardBackground(0); // <-- NEW: This handles loading the image and setting si
 const saveLoaded = loadGame();
 if (!saveLoaded) {
   // Only spawn default bed if no save was loaded
-  spawnBed(220, 220, 0); 
+  spawnBed(220, 220, 0);
 }
 switchStage(currentStage); // Switch to saved stage
 // --- END FIX 4 ---
@@ -1329,6 +1426,7 @@ closeBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     shopModal.style.display = "none";
     upgradesModal.style.display = "none";
+    optionsModal.style.display = "none"; // <-- FIX 3
   });
 });
 
@@ -1339,7 +1437,8 @@ window.addEventListener("click", (e) => {
   if (e.target == shopModal) shopModal.style.display = "none";
   if (e.target == upgradesModal) upgradesModal.style.display = "none";
   if (e.target == alertModal) alertModal.style.display = "none";
-  if (e.target == resetModal) resetModal.style.display = "none"; // <-- FIX 4
+  if (e.target == resetModal) resetModal.style.display = "none";
+  if (e.target == optionsModal) optionsModal.style.display = "none"; // <-- FIX 3
 });
 
 // Stage Button Listeners
@@ -1347,11 +1446,27 @@ stageBtns.forEach((btn, index) => {
   btn.addEventListener("click", () => switchStage(index));
 });
 
-// --- FIX 4: Reset Listeners ---
+// --- FIX 3: Options Modal Listeners ---
+openOptionsBtn.addEventListener("click", () => {
+  optionsModal.style.display = "flex";
+});
+
+volumeSlider.addEventListener("input", (e) => {
+  const volume = parseFloat(e.target.value);
+  if (bgMusic) {
+    bgMusic.volume = volume;
+  }
+  volumeValue.textContent = (volume * 100).toFixed(0);
+  // Removed the playMusic call here, it's covered by the global mousedown/touchstart/keydown listener.
+});
+
 resetBtn.addEventListener("click", () => {
   resetModal.style.display = "flex";
 });
+// --- END FIX 3 ---
 
+
+// --- FIX 4: Reset Listeners ---
 resetCancelBtn.addEventListener("click", () => {
   resetModal.style.display = "none";
 });
@@ -1376,11 +1491,11 @@ setInterval(() => {
   activeCats.forEach(cat => {
     if (cat && cat.el) {
       triggerCatSquish(cat);
-      // NOTE: Only drop ball if it's the base income tick. 
+      // NOTE: Only drop ball if it's the base income tick.
       // Buffed cats now drop a ball every 0.1s from the main interval.
       // This ensures non-buffed cats still drop a ball every 1.5s
       if (!cat.snackBuffEndTime || Date.now() >= cat.snackBuffEndTime) {
-         dropBall(cat.el); 
+         dropBall(cat.el);
       }
     }
   });
@@ -1395,7 +1510,7 @@ setInterval(() => {
 
   activeCats.forEach(cat => {
     if (!cat || !cat.el) return;
-    
+
     // Check if cat is not being dragged or merging
     if (cat.el.style.cursor !== 'grabbing' && !cat.el.classList.contains('cat-merging')) {
       // 50% chance to move
@@ -1403,7 +1518,7 @@ setInterval(() => {
         // Calculate a small random move
         const dX = (Math.random() - 0.5) * 70; // Move up to +-35px
         const dY = (Math.random() - 0.5) * 70; // Move up to +-35px
-        
+
         // Clamp to board boundaries
         let newX = cat.x + dX;
         let newY = cat.y + dY;
@@ -1433,7 +1548,7 @@ function handleDragMove(clientX, clientY) {
     return;
   }
   const rect = board.getBoundingClientRect();
-  
+
   let newX = clientX - rect.left - dragOffsetX;
   let newY = clientY - rect.top - dragOffsetY;
 
@@ -1451,7 +1566,7 @@ function handleDragEnd() {
   if (!isDragging || !draggedItem) return;
 
   const { type, item } = draggedItem;
-  
+
   // Check if item still exists (it might have been auto-merged)
   if (item && item.el) {
     if (type === 'cat') {
@@ -1498,4 +1613,3 @@ document.addEventListener("touchcancel", () => {
   // Handle cases where the touch is interrupted (e.g., by a system alert)
   handleDragEnd();
 });
-
