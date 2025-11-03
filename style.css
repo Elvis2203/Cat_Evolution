@@ -430,7 +430,8 @@ body {
   position: absolute;
   width: 20px;
   height: 20px;
-  background-image: url('images/balls/ball1.PNG');
+  /* MODIFIED: Removed static background-image */
+  /* background-image: url('images/balls/ball1.PNG'); */
   background-size: contain;
   background-repeat: no-repeat;
   z-index: 20; /* On top of cats */
@@ -497,4 +498,3 @@ body {
 .cat-spawn {
   animation: spawn-in 0.4s ease-out;
 }
-

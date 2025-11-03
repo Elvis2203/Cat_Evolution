@@ -242,7 +242,7 @@ setInterval(() => {
         // --- FIX 3: Only animate if cat is on the current stage ---
         if (isStageVisible) {
             triggerCatSquish(cat);
-            dropBall(cat.el);
+            dropBall(cat); // MODIFIED: Pass cat object
         }
         // --- END FIX 3 ---
 
@@ -475,7 +475,7 @@ function spawnCat(level, x, y, stageIndex, fromMerge = false) {
 
     // Trigger animations
     triggerCatSquish(cat);
-    dropBall(cat.el);
+    dropBall(cat); // MODIFIED: Pass cat object
   });
 
   makeDraggable(cat);
@@ -1065,13 +1065,20 @@ function giveSnackToCat(cat, duration = 10000) {
 
 // --- Animation Functions ---
 
-function dropBall(catElement) {
+// MODIFIED: Function now accepts the entire cat object
+function dropBall(cat) {
+  const catElement = cat.el;
+  const stageIndex = cat.stageIndex;
+
   // --- FIX 3: Add check ---
   if (!catElement || catElement.style.display === 'none') return;
   // --- END FIX 3 ---
 
   const ball = document.createElement("div");
   ball.className = "coin-ball";
+  // MODIFIED: Set ball image based on the cat's stage
+  ball.style.backgroundImage = `url('images/balls/ball${stageIndex + 1}.png')`;
+
 
   // Start ball from the center of the cat
   const startX = catElement.offsetLeft + (catElement.clientWidth / 2) - 10; // 10 is half ball width
@@ -1333,7 +1340,10 @@ function preloadImages() {
 
   // 2. Other Core Assets
   imagesToLoad.push('images/cats/bed.png');
-  imagesToLoad.push('images/balls/ball1.PNG');
+  imagesToLoad.push('images/balls/ball1.png'); // MODIFIED: Keep .png (lowercase)
+  imagesToLoad.push('images/balls/ball2.png'); // MODIFIED: Preload new balls
+  imagesToLoad.push('images/balls/ball3.png'); // MODIFIED: Preload new balls
+  imagesToLoad.push('images/coin.png'); // MODIFIED: Preload coin
 
   // 3. Stage Backgrounds
   imagesToLoad.push('images/board/board1.png');
@@ -1495,7 +1505,7 @@ setInterval(() => {
       // Buffed cats now drop a ball every 0.1s from the main interval.
       // This ensures non-buffed cats still drop a ball every 1.5s
       if (!cat.snackBuffEndTime || Date.now() >= cat.snackBuffEndTime) {
-         dropBall(cat.el);
+         dropBall(cat); // MODIFIED: Pass cat object
       }
     }
   });
