@@ -28,7 +28,7 @@ const catTypes = [
   createCatType(6, "Catburger", catBasePrices[5]),
   createCatType(7, "Energy Cat", catBasePrices[6]),
   createCatType(8, "Scientist Cat", catBasePrices[7]),
-  createCatType(9, "Angel Cat", catBasePrices[8]),
+  createCatType(9, "Alien Cat", catBasePrices[8]),
   createCatType(10, "Demon Cat", catBasePrices[9]),
   createCatType(11, "Galaxy Cat", catBasePrices[10]),
   createCatType(12, "Time Cat", catBasePrices[11]),
